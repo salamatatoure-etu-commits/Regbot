@@ -1,0 +1,13 @@
+Bienvenue dans ce document de test.
+
+Ce fichier contient du texte simple pour tester le pipeline de traitement de documents.
+
+L'intelligence artificielle est un domaine de l'informatique qui vise à créer des systèmes capables d'effectuer des tâches qui nécessitent normalement l'intelligence humaine.
+
+Les bases de données relationnelles comme PostgreSQL permettent de stocker et d'interroger des données de manière structurée. Elles utilisent le langage SQL pour effectuer des opérations de lecture, d'écriture et de mise à jour.
+
+Le traitement du langage naturel, ou NLP, est une branche de l'IA qui s'intéresse à l'interaction entre les ordinateurs et le langage humain. Il permet d'analyser, de comprendre et de générer du texte.
+
+Un système RAG (Retrieval-Augmented Generation) combine la recherche dans une base de connaissances avec la génération de texte par un modèle de langage. Cela permet d'obtenir des réponses précises basées sur des documents réels.
+
+Ce document peut être utilisé pour vérifier que l'indexation et la recherche fonctionnent correctement dans votre application.

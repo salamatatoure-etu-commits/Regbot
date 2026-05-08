@@ -1,0 +1,35 @@
+Gestion des factures et notes de frais
+
+Ce document décrit les procédures à suivre pour le traitement des factures fournisseurs et le remboursement des notes de frais des employés.
+
+Factures fournisseurs
+
+Réception et enregistrement
+Toutes les factures doivent être envoyées à l'adresse email factures@entreprise.com ou transmises physiquement au service comptabilité. Elles doivent obligatoirement mentionner le numéro de bon de commande correspondant.
+
+Délais de traitement
+- Factures inférieures à 1 000 € : validation sous 5 jours ouvrables.
+- Factures entre 1 000 € et 10 000 € : validation sous 10 jours ouvrables, nécessite la signature du responsable de service.
+- Factures supérieures à 10 000 € : validation sous 15 jours ouvrables, nécessite la signature du directeur financier.
+
+Paiement
+Les paiements sont effectués le 30 du mois ou le dernier jour ouvrable si le 30 est un jour férié. Les virements sont réalisés par le service comptabilité après validation complète.
+
+Notes de frais
+
+Frais remboursables
+Sont remboursés les frais engagés dans le cadre de l'activité professionnelle :
+- Déplacements professionnels (train, avion, taxi, carburant).
+- Repas lors de déplacements : plafond de 25 € par repas.
+- Hébergement : plafond de 120 € par nuit (Paris et grandes villes) ou 90 € ailleurs.
+- Frais de stationnement et péages sur justificatif.
+
+Procédure de remboursement
+1. Remplir le formulaire de note de frais disponible sur l'intranet RH.
+2. Joindre tous les justificatifs originaux (tickets, factures).
+3. Faire valider par son responsable hiérarchique.
+4. Soumettre au service comptabilité avant le 15 du mois pour remboursement le mois même.
+
+Les notes de frais soumises après le 15 sont traitées le mois suivant. Tout frais non justifié sera refusé.
+
+Contact comptabilité : comptabilite@entreprise.com — Poste 4421
