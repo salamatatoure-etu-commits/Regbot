@@ -1,15 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
-from models import Message
+from models import Message, Utilisateur
 from schemas import MessageCreate, MessageOut
-from auth.dependencies import get_db
+from auth.dependencies import get_db, get_current_user, require_admin
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
 
 
 @router.post("/", response_model=MessageOut, status_code=201)
-def create_message(data: MessageCreate, db: Session = Depends(get_db)):
+def create_message(data: MessageCreate, db: Session = Depends(get_db), _: Utilisateur = Depends(require_admin)):
     msg = Message(**data.model_dump())
     db.add(msg)
     db.commit()
@@ -18,7 +17,7 @@ def create_message(data: MessageCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{message_id}", response_model=MessageOut)
-def get_message(message_id: int, db: Session = Depends(get_db)):
+def get_message(message_id: int, db: Session = Depends(get_db), _: Utilisateur = Depends(get_current_user)):
     msg = db.query(Message).filter(Message.messageId == message_id).first()
     if not msg:
         raise HTTPException(status_code=404, detail="Message non trouvé")
@@ -26,7 +25,13 @@ def get_message(message_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/{message_id}/feedback", response_model=MessageOut)
-def evaluer_message(message_id: int, feedback: int, feedback_text: str = None, db: Session = Depends(get_db)):
+def evaluer_message(
+    message_id: int,
+    feedback: int,
+    feedback_text: str = None,
+    db: Session = Depends(get_db),
+    _: Utilisateur = Depends(get_current_user),
+):
     msg = db.query(Message).filter(Message.messageId == message_id).first()
     if not msg:
         raise HTTPException(status_code=404, detail="Message non trouvé")
@@ -40,7 +45,7 @@ def evaluer_message(message_id: int, feedback: int, feedback_text: str = None, d
 
 
 @router.delete("/{message_id}", status_code=204)
-def delete_message(message_id: int, db: Session = Depends(get_db)):
+def delete_message(message_id: int, db: Session = Depends(get_db), _: Utilisateur = Depends(require_admin)):
     msg = db.query(Message).filter(Message.messageId == message_id).first()
     if not msg:
         raise HTTPException(status_code=404, detail="Message non trouvé")

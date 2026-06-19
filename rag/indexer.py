@@ -1,14 +1,15 @@
 import io
+import os
 import logging
 from sqlalchemy.orm import Session
 
 from rag.chunks import (
-    clean_text, chunk_text,
+    clean_text, chunk_text, chunk_by_titles, chunk_by_semantics,
     get_smart_text_end, get_smart_text_start,
     find_sentence_continuation, find_concept_bridge,
 )
-from rag.embedder import embed_text
-from rag.vectorizer import store_chunks, store_embedding
+from rag.embedder import embed_texts
+from rag.vectorizer import store_chunks, store_embeddings_batch
 from rag.document_processing_utils import deduplicate_chunks
 
 logger = logging.getLogger("uvicorn")
@@ -31,7 +32,8 @@ def _extract_pdf_pymupdf(content_bytes: bytes) -> list[tuple[int, str]]:
             try:
                 import pytesseract
                 from PIL import Image
-                pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+                tesseract_path = os.getenv("TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+                pytesseract.pytesseract.tesseract_cmd = tesseract_path
                 # Rendu à 2x pour améliorer la précision OCR
                 pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
                 img = Image.open(io.BytesIO(pix.tobytes("png")))
@@ -158,13 +160,13 @@ def _build_page_with_context(pages: list[tuple[int, str]], i: int) -> str:
     if i > 0:
         prev_context = get_smart_text_end(clean_text(pages[i - 1][1]), OVERLAP_SIZE)
         if prev_context:
-            extended = f"{prev_context}\n[CONTEXT_FROM_PREV_PAGE]\n{extended}"
+            extended = f"{prev_context}\n\n{extended}"
 
     # Ajoute le début de la page suivante pour ne pas perdre le contexte de sortie
     if i < len(pages) - 1:
         next_context = get_smart_text_start(clean_text(pages[i + 1][1]), OVERLAP_SIZE)
         if next_context:
-            extended = f"{extended}\n[CONTEXT_TO_NEXT_PAGE]\n{next_context}"
+            extended = f"{extended}\n\n{next_context}"
 
     return extended
 
@@ -184,7 +186,7 @@ def _create_transition_chunks(pages: list[tuple[int, str]]) -> list[tuple[int, s
         end = get_smart_text_end(cur, OVERLAP_SIZE)
         start = get_smart_text_start(nxt, OVERLAP_SIZE)
         if end and start:
-            transition = f"{end}\n[PAGE_TRANSITION {cur_num}→{nxt_num}]\n{start}"
+            transition = f"{end}\n\n{start}"
             chunks.extend(chunk_text(cur_num, transition))
 
         # Variante 2 : phrase coupée en milieu de saut de page
@@ -205,9 +207,11 @@ def build_chunks_with_context(pages: list[tuple[int, str]]) -> list[tuple[int, s
     Pipeline complet de chunking :
     - Stratégie 1 : chunks par page avec contexte des pages adjacentes
     - Stratégie 2 : chunks de transition entre pages consécutives
+    - Stratégie 3 : chunks par section/titre (title-based)
     """
-    # Stratégie 1 : chaque page enrichie du contexte voisin
     all_chunks: list[tuple[int, str]] = []
+
+    # Stratégie 1 : chaque page enrichie du contexte voisin
     for i, (page_num, _) in enumerate(pages):
         extended = _build_page_with_context(pages, i)
         all_chunks.extend(chunk_text(page_num, extended))
@@ -215,6 +219,20 @@ def build_chunks_with_context(pages: list[tuple[int, str]]) -> list[tuple[int, s
     # Stratégie 2 : chunks inter-pages (uniquement si document multi-pages)
     if len(pages) > 1:
         all_chunks.extend(_create_transition_chunks(pages))
+
+    # Stratégie 3 : chunks par section détectée (articles, chapitres, titres Markdown...)
+    # Ajoute des chunks structurés uniquement quand des titres sont présents
+    for page_num, page_content in pages:
+        title_chunks = chunk_by_titles(page_num, clean_text(page_content))
+        if len(title_chunks) > 1:  # au moins 2 sections détectées → structure utile
+            all_chunks.extend(title_chunks)
+
+    # Stratégie 4 : semantic chunking — coupe aux frontières de changement de sujet
+    # Chaque chunk parle d'un seul sujet cohérent (similarité cosinus entre phrases)
+    for page_num, page_content in pages:
+        semantic_chunks = chunk_by_semantics(page_num, clean_text(page_content))
+        if len(semantic_chunks) > 1:  # au moins 2 segments sémantiques détectés
+            all_chunks.extend(semantic_chunks)
 
     return all_chunks
 
@@ -235,13 +253,11 @@ def index_document(db: Session, document_id: str, content_bytes: bytes, mime_typ
         return 0
 
     texts = [c[1] for c in chunks]
-    embeddings = [embed_text(t) for t in texts]
-    # Supprime les chunks trop similaires avant stockage
+    embeddings = embed_texts(texts)
     chunks, embeddings = deduplicate_chunks(chunks, embeddings)
 
     chunk_ids = store_chunks(db, document_id, chunks)
-    for chunk_id, embedding in zip(chunk_ids, embeddings):
-        store_embedding(db, chunk_id, embedding)
+    store_embeddings_batch(db, list(zip(chunk_ids, embeddings)))
 
     logger.info(f"Document {document_id} : {len(chunk_ids)} chunks indexés.")
     return len(chunk_ids)

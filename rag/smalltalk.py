@@ -12,8 +12,8 @@ SMALLTALK_PATTERN = {
         "bonne journée", "bonne nuit", "à bientôt", "à plus",
         "super", "top", "parfait", "génial", "nickel", "trop bien",
         "trop cool", "cool", "j'adore", "bien joué", "bravo", "excellent",
-        "test", "mdr", "lol", "haha", "...", "ok", "d'accord",
-        "ah bon", "ah ok", "hm", "ouais", "oui",
+        "test", "mdr", "lol", "haha", "...", "d'accord",
+        "ah bon", "ah ok", "hm",
         "y a quelqu'un ?", "il y a quelqu'un ?", "j'ai besoin d'aide",
         "tu es là ?", "quelqu'un ici ?", "j'ai une question",
         "aide moi", "je suis perdu",
@@ -29,7 +29,7 @@ SMALLTALK_PATTERN = {
         "good morning", "good evening", "good night",
         "what's up?", "sup?", "awesome", "perfect", "amazing",
         "love it", "cool", "great job", "well done",
-        "ok thanks", "ok", "okay", "sure", "right",
+        "ok thanks", "okay", "sure", "right",
         "ah", "lol", "haha", "hm", "hmm", "test",
     ],
     "es": [
@@ -38,7 +38,7 @@ SMALLTALK_PATTERN = {
         "todo bien", "bien, gracias", "gracias", "muchas gracias",
         "te lo agradezco", "muy bien", "perfecto", "excelente",
         "genial", "increíble", "me encanta", "buen trabajo",
-        "ok gracias", "ok", "vale", "está bien", "ah ok", "entendido",
+        "ok gracias", "vale", "está bien", "ah ok", "entendido",
         "encantado", "un placer", "hasta luego", "hasta pronto",
         "cuidate", "saludos", "jajaja", "jeje", "mmm", "test",
         "aló", "estás ahí?", "hay alguien?", "necesito ayuda",
@@ -46,10 +46,15 @@ SMALLTALK_PATTERN = {
     ],
 }
 
-DEFAULT_RESPONSES = {
-    "fr": "Bonjour ! N'hésitez pas à poser une question liée à la documentation interne.",
-    "en": "Hello! Feel free to ask a documentation-related question.",
-    "es": "¡Hola! No dudes en hacer una pregunta relacionada con la documentación.",
+_GREETINGS = {"bonjour", "salut", "bonsoir", "coucou", "hey", "yo", "hello", "allô", "rebonjour", "hi", "howdy", "hola", "buenas"}
+_THANKS    = {"merci", "merci beaucoup", "merci pour ton aide", "super merci", "je te remercie", "ok merci", "c'est gentil", "thanks", "thank you", "thanks a lot", "appreciate it", "cheers", "gracias", "muchas gracias", "te lo agradezco"}
+_GOODBYES  = {"bonne journée", "bonne nuit", "à bientôt", "à plus", "take care", "good night", "good morning", "good evening", "hasta luego", "hasta pronto", "cuidate"}
+
+_TYPED_RESPONSES = {
+    "greeting": "Bonjour ! Posez-moi une question sur vos documents.",
+    "thanks":   "De rien ! Si vous avez d'autres questions, je suis là.",
+    "goodbye":  "Bonne journée ! À bientôt.",
+    "default":  "N'hésitez pas à poser une question liée à la documentation interne.",
 }
 
 
@@ -82,7 +87,11 @@ def is_smalltalk(query: str) -> bool:
     if 1 < len(words) <= 3 and all(w in _SMALLTALK_SET for w in words):
         return True
 
-    if len(q) < 25:
+    # Uniquement pour les questions très courtes sans mot interrogatif
+    # Évite les faux positifs sur "2FA", "salaire", "mot de passe"...
+    _QUESTION_WORDS = {"quels", "quelle", "comment", "pourquoi", "qui", "que", "quel", "qu", "quoi", "cest", "kesako", "what", "explain"}
+    words_set = set(q.split())
+    if len(q) < 15 and not (words_set & _QUESTION_WORDS):
         for pattern in _SMALLTALK_SET:
             if re.search(r'\b' + re.escape(pattern) + r'\b', q):
                 return True
@@ -90,5 +99,12 @@ def is_smalltalk(query: str) -> bool:
     return False
 
 
-def get_default_response(langue: str = "fr") -> str:
-    return DEFAULT_RESPONSES.get(langue, DEFAULT_RESPONSES["fr"])
+def get_default_response(query: str = "", langue: str = "fr") -> str:
+    q = _normalize(query)
+    if any(q == _normalize(p) or q.startswith(_normalize(p)) for p in _GREETINGS):
+        return _TYPED_RESPONSES["greeting"]
+    if any(q == _normalize(p) or _normalize(p) in q for p in _THANKS):
+        return _TYPED_RESPONSES["thanks"]
+    if any(q == _normalize(p) or _normalize(p) in q for p in _GOODBYES):
+        return _TYPED_RESPONSES["goodbye"]
+    return _TYPED_RESPONSES["default"]

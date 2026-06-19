@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from functools import lru_cache
 import regex
@@ -132,7 +133,100 @@ def find_concept_bridge(current_content: str, next_content: str, overlap_size: i
 # ------------------------------------------------------------------ #
 
 CHUNK_SIZE = 400  # taille cible d'un chunk en tokens
-OVERLAP    = 50   # tokens partagés entre deux chunks consécutifs pour préserver le contexte
+OVERLAP    = 80  # tokens partagés entre deux chunks consécutifs pour préserver le contexte
+
+
+# ------------------------------------------------------------------ #
+# TITLE-BASED CHUNKING                                                 #
+# ------------------------------------------------------------------ #
+
+# Lettre majuscule (ASCII + accents français)
+_U = r'[A-ZÀÂÄÉÈÊËÎÏÔÖÙÛÜŸÇ]'
+
+# Patterns reconnus comme titres de section
+_TITLE_PATTERNS = [
+    re.compile(r'^#{1,4}\s+.+'),                                        # Markdown : # Titre, ## Sous-titre
+    re.compile(r'^(?:Article|Chapitre|Section|Annexe|Titre)\s+\w+', re.IGNORECASE),  # Juridique FR
+    re.compile(rf'^\d+[\.\)]\s+{_U}.{{2,}}'),                          # 1. Titre  /  1) Titre
+    re.compile(rf'^\d+\.\d+[\s\.]+{_U}.{{2,}}'),                       # 1.1 Titre /  1.1. Titre
+    re.compile(rf'^[IVXLC]+\.\s+{_U}.{{2,}}'),                         # I. Titre  /  II. Titre
+    re.compile(rf'^{_U}{{3,}}(?:\s+{_U}+){{0,5}}$'),                   # TITRE EN MAJUSCULES (3–6 mots)
+]
+
+
+def is_title_line(line: str) -> bool:
+    """Retourne True si la ligne ressemble à un titre de section."""
+    line = line.strip()
+    if not line or len(line) > 120:  # titre trop long = probablement du contenu
+        return False
+    return any(p.match(line) for p in _TITLE_PATTERNS)
+
+
+def chunk_by_titles(page_num: int, text: str) -> list[tuple[int, str]]:
+    """
+    Découpe le texte aux frontières de titres détectés.
+    Chaque section (titre + contenu) devient un chunk.
+    Les sections trop petites sont fusionnées avec la suivante pour éviter les micro-chunks.
+    Si une section dépasse CHUNK_SIZE, chunk_text() la subdivise.
+    Retourne les chunks fixes si aucun titre n'est détecté (fallback).
+    """
+    lines = text.splitlines()
+    sections: list[str] = []
+    current: list[str] = []
+
+    for line in lines:
+        if is_title_line(line) and current:
+            section = "\n".join(current).strip()
+            if section:
+                sections.append(section)
+            current = [line]
+        else:
+            current.append(line)
+
+    if current:
+        section = "\n".join(current).strip()
+        if section:
+            sections.append(section)
+
+    # Moins de 2 sections → pas de structure détectée, fallback chunk_text
+    if len(sections) <= 1:
+        return chunk_text(page_num, text)
+
+    # Fusion des sections trop petites avec la section suivante
+    # Évite les micro-chunks (< 50 tokens) qui nuisent à la qualité du retrieval
+    _MIN_SECTION_TOKENS = 80
+    merged_sections: list[str] = []
+    buffer = ""
+
+    for section in sections:
+        if buffer:
+            combined = buffer + "\n\n" + section
+            if token_length(buffer) < _MIN_SECTION_TOKENS:
+                # Section précédente trop petite → on la fusionne avec la courante
+                buffer = combined
+            else:
+                merged_sections.append(buffer)
+                buffer = section
+        else:
+            buffer = section
+
+    if buffer:
+        # Si le dernier buffer est trop petit, le fusionner avec le précédent
+        if merged_sections and token_length(buffer) < _MIN_SECTION_TOKENS:
+            merged_sections[-1] = merged_sections[-1] + "\n\n" + buffer
+        else:
+            merged_sections.append(buffer)
+
+    chunks: list[tuple[int, str]] = []
+    for section in merged_sections:
+        if token_length(section) <= CHUNK_SIZE:
+            chunks.append((page_num, section))
+        else:
+            # Section trop longue : subdivise en gardant le titre dans chaque sous-chunk
+            sub = chunk_text(page_num, section)
+            chunks.extend(sub)
+
+    return chunks
 
 
 def chunk_text(page_num: int, text: str) -> list[tuple[int, str]]:
@@ -166,13 +260,6 @@ def chunk_text(page_num: int, text: str) -> list[tuple[int, str]]:
         chunks.append((page_num, " ".join(current_sents).strip()))
     return chunks
 
-
-def build_chunks(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
-    """Applique chunk_text sur toutes les pages d'un document."""
-    all_chunks = []
-    for page_num, text in pages:
-        all_chunks.extend(chunk_text(page_num, text))
-    return all_chunks
 
 
 # ------------------------------------------------------------------ #
@@ -213,6 +300,65 @@ def get_smart_text_end(content: str, size: int) -> str:
         else:
             break
     return " ".join(best_words).strip()
+
+
+# ------------------------------------------------------------------ #
+# SEMANTIC CHUNKING                                                    #
+# ------------------------------------------------------------------ #
+
+def chunk_by_semantics(page_num: int, text: str) -> list[tuple[int, str]]:
+    """
+    Découpe le texte aux frontières sémantiques : coupe quand la similarité
+    cosinus entre deux phrases consécutives chute sous (moyenne - écart-type).
+    Utilise le même modèle d'embedding que le pipeline de recherche.
+    Fallback sur chunk_text() si moins de 3 phrases ou si numpy est absent.
+    """
+    sentences = cached_sent_tokenize(text)
+    if len(sentences) < 3:
+        return chunk_text(page_num, text)
+
+    try:
+        import numpy as np
+        # Import local pour éviter la dépendance circulaire au niveau module
+        from rag.embedder import embed_texts
+
+        embeddings = embed_texts(sentences)  # batch : 1 appel modèle pour toutes les phrases
+
+        # Similarité cosinus entre phrases consécutives
+        sims = []
+        for i in range(len(embeddings) - 1):
+            a = np.array(embeddings[i])
+            b = np.array(embeddings[i + 1])
+            norm = np.linalg.norm(a) * np.linalg.norm(b)
+            sims.append(float(np.dot(a, b) / norm) if norm > 0 else 1.0)
+
+        # Seuil dynamique : coupe quand la similarité passe sous (moyenne - écart-type)
+        # Plus robuste qu'un seuil fixe car il s'adapte au document
+        threshold = float(np.mean(sims) - np.std(sims))
+
+        # Indices des phrases qui marquent le début d'une nouvelle section
+        breakpoints = [i + 1 for i, s in enumerate(sims) if s < threshold]
+
+        if not breakpoints:
+            return chunk_text(page_num, text)
+
+        # Regroupe les phrases entre chaque point de rupture
+        chunks: list[tuple[int, str]] = []
+        boundaries = [0] + breakpoints + [len(sentences)]
+        for start, end in zip(boundaries, boundaries[1:]):
+            group = " ".join(sentences[start:end]).strip()
+            if not group or token_length(group) < 30:  # ignore les groupes trop courts
+                continue
+            if token_length(group) > CHUNK_SIZE:
+                chunks.extend(chunk_text(page_num, group))  # subdivise si trop long
+            else:
+                chunks.append((page_num, group))
+
+        return chunks if chunks else chunk_text(page_num, text)
+
+    except Exception:
+        # Fallback silencieux si numpy ou embedder indisponible
+        return chunk_text(page_num, text)
 
 
 def get_smart_text_start(content: str, size: int) -> str:

@@ -19,6 +19,7 @@ class BotOut(BaseModel):
     actif: Optional[bool]
     status: BotStatus
     llm_model_id: Optional[int]
+    prompt: Optional[str] = None
 
     class Config:
         from_attributes = True

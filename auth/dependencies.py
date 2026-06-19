@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from models import Utilisateur
 from models.base import SessionLocal
+from models.enums import RoleEnum
 from auth.security import decode_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -42,3 +43,12 @@ def get_current_user(
     if user is None or not user.is_active:
         raise credentials_exception
     return user
+
+
+def require_admin(current_user: Utilisateur = Depends(get_current_user)) -> Utilisateur:
+    if current_user.role != RoleEnum.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs",
+        )
+    return current_user

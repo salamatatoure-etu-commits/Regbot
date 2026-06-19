@@ -7,6 +7,11 @@ class ServiceCreate(BaseModel):
     description: Optional[str] = None
 
 
+class ServiceUpdate(BaseModel):
+    nom: Optional[str] = None
+    description: Optional[str] = None
+
+
 class ServiceOut(BaseModel):
     serviceId: int
     nom: str

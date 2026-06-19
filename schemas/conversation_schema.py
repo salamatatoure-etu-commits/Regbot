@@ -20,6 +20,7 @@ class ConversationOut(BaseModel):
     last_activity: datetime
     status: ConversationStatus
     notes: Optional[str]
+    titre: Optional[str]
 
     class Config:
         from_attributes = True

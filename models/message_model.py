@@ -19,5 +19,6 @@ class Message(Base):
     feedback_text   = Column(String(255), nullable=True)
     response_time   = Column(Interval, nullable=True)
     priority        = Column(SAEnum(PriorityEnum, name="priority_enum"), default=PriorityEnum.medium, nullable=True)
+    temp_document_ids = Column(String(100), nullable=True)
 
     conversation = relationship("Conversation", back_populates="messages")

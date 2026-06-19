@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from models import Utilisateur, RefreshToken
 from auth.dependencies import get_db, get_current_user
-from auth.security import verify_password, create_access_token, create_refresh_token, decode_token
+from auth.security import verify_password, hash_password, create_access_token, create_refresh_token, decode_token
 from schemas.auth_schema import RefreshRequest, TokenOut
 from schemas.utilisateur_schema import UtilisateurOut
 
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 def _save_refresh_token(db: Session, utilisateur_id: int, token: str, expires_at) -> None:
     db.query(RefreshToken).filter(RefreshToken.utilisateur_id == utilisateur_id).delete()
+    db.flush()
     db.add(RefreshToken(utilisateur_id=utilisateur_id, token=token, expires_at=expires_at))
     db.commit()
 
@@ -84,4 +86,25 @@ def logout(current_user: Utilisateur = Depends(get_current_user), db: Session = 
 
 @router.get("/me", response_model=UtilisateurOut)
 def me(current_user: Utilisateur = Depends(get_current_user)):
-    return current_user
+    result = UtilisateurOut.model_validate(current_user)
+    result.service_nom = current_user.service.nom if current_user.service else None
+    return result
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@router.put("/change-password", status_code=204)
+def change_password(
+    body: ChangePasswordRequest,
+    current_user: Utilisateur = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(body.old_password, current_user.mot_de_passe):
+        raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
+    if len(body.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Le nouveau mot de passe doit contenir au moins 6 caractères")
+    current_user.mot_de_passe = hash_password(body.new_password)
+    db.commit()

@@ -25,6 +25,7 @@ class DocumentOut(BaseModel):
     mime_type: Optional[str] = None
     web_url: Optional[str] = None
     download_url: Optional[str] = None
+    chunk_count: Optional[int] = None
 
     class Config:
         from_attributes = True

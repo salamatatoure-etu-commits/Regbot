@@ -26,6 +26,7 @@ class MessageOut(BaseModel):
     feedback: Optional[int]
     feedback_text: Optional[str]
     priority: Optional[PriorityEnum]
+    temp_document_ids: Optional[str] = None
 
     class Config:
         from_attributes = True

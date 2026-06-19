@@ -1,21 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from models import Bot, Service, LLMModel
+from models import Bot, Service, LLMModel, Utilisateur
 from schemas import BotOut
 from schemas.bot_schema import BotCreate
-from auth.dependencies import get_db
+from auth.dependencies import get_db, get_current_user, require_admin
 
 router = APIRouter(prefix="/bots", tags=["Bots"])
 
 
 @router.get("/", response_model=List[BotOut])
-def list_bots(skip: int = 0, limit: int = 20, db: Session = Depends(get_db)):
+def list_bots(skip: int = 0, limit: int = 20, db: Session = Depends(get_db), _: Utilisateur = Depends(require_admin)):
     return db.query(Bot).offset(skip).limit(limit).all()
 
 
 @router.get("/{bot_id}", response_model=BotOut)
-def get_bot(bot_id: int, db: Session = Depends(get_db)):
+def get_bot(bot_id: int, db: Session = Depends(get_db), _: Utilisateur = Depends(require_admin)):
     bot = db.query(Bot).filter(Bot.botId == bot_id).first()
     if not bot:
         raise HTTPException(status_code=404, detail="Bot non trouvé")
@@ -23,7 +23,7 @@ def get_bot(bot_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=BotOut, status_code=201)
-def create_bot(data: BotCreate, db: Session = Depends(get_db)):
+def create_bot(data: BotCreate, db: Session = Depends(get_db), _: Utilisateur = Depends(require_admin)):
     if not db.query(Service).filter(Service.serviceId == data.service_id).first():
         raise HTTPException(status_code=400, detail="Service introuvable")
     if data.llm_model_id and not db.query(LLMModel).filter(LLMModel.llmId == data.llm_model_id).first():
@@ -35,8 +35,19 @@ def create_bot(data: BotCreate, db: Session = Depends(get_db)):
     return bot
 
 
+@router.patch("/{bot_id}/prompt", response_model=BotOut)
+def update_bot_prompt(bot_id: int, body: dict, db: Session = Depends(get_db), _: Utilisateur = Depends(require_admin)):
+    bot = db.query(Bot).filter(Bot.botId == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot non trouvé")
+    bot.prompt = body.get("prompt") or None
+    db.commit()
+    db.refresh(bot)
+    return bot
+
+
 @router.delete("/{bot_id}", status_code=204)
-def delete_bot(bot_id: int, db: Session = Depends(get_db)):
+def delete_bot(bot_id: int, db: Session = Depends(get_db), _: Utilisateur = Depends(require_admin)):
     bot = db.query(Bot).filter(Bot.botId == bot_id).first()
     if not bot:
         raise HTTPException(status_code=404, detail="Bot non trouvé")

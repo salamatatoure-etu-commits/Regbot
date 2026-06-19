@@ -19,7 +19,7 @@ from models import (
     ConversationStatus, ConversationTempDocument,
     Chunk, RefreshToken,
 )
-from rag.smalltalk import SMALLTALK_PATTERN, DEFAULT_RESPONSES
+from rag.smalltalk import SMALLTALK_PATTERN, get_default_response
 from auth.security import hash_password
 
 load_dotenv()
@@ -29,7 +29,7 @@ load_dotenv()
 # =========================================================
 DATABASE_NAME     = os.getenv("DATABASE_NAME", "regbot")
 DATABASE_USER     = os.getenv("DATABASE_USER", "postgres")
-DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "Salimata")
+DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "")
 DATABASE_HOST     = os.getenv("DATABASE_HOST", "127.0.0.1")
 DATABASE_PORT     = os.getenv("DATABASE_PORT", "5433")
 
@@ -271,7 +271,7 @@ def add_smalltalk_messages():
             bot = session.query(Bot).filter_by(service_id=utilisateur.service_id).first()
             langue = "fr"
             phrases = SMALLTALK_PATTERN.get(langue, [])
-            default_response = DEFAULT_RESPONSES.get(langue)
+            default_response = get_default_response(langue=langue)
 
             conv = Conversation(
                 utilisateur_id=utilisateur.utilisateurId,

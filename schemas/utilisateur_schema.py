@@ -17,6 +17,7 @@ class UtilisateurOut(BaseModel):
     email: str
     role: RoleEnum
     service_id: Optional[int]
+    service_nom: Optional[str] = None
     is_active: bool
 
     class Config:

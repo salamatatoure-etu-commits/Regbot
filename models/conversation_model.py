@@ -29,6 +29,7 @@ class Conversation(Base):
     last_activity  = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
     status         = Column(SAEnum(ConversationStatus, name="conversation_status"), default=ConversationStatus.active, nullable=False)
     notes          = Column(Text, nullable=True)
+    titre          = Column(String(255), nullable=True)
 
     utilisateur    = relationship("Utilisateur", back_populates="conversations")
     service        = relationship("Service", back_populates="conversations")

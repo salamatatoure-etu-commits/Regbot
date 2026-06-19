@@ -13,7 +13,7 @@ class Chunk(Base):
     page_num    = Column(Integer, nullable=True)
     chunk_index = Column(Integer, nullable=False, default=0)
     contenu     = Column(Text, nullable=False)
-    embedding   = Column(Vector(768), nullable=True)
+    embedding   = Column(Vector(384), nullable=True)
     is_indexed  = Column(Boolean, default=False, nullable=False)
     created_at  = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
 
