@@ -26,6 +26,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Claude
+.claude/
+
 # Node
 frontend/node_modules/
 frontend/dist/

@@ -586,6 +586,46 @@
   letter-spacing: 0.5px;
 }
 
+.msg-feedback {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+}
+
+.msg-feedback-btn {
+  background: none;
+  border: 1px solid #e2e2e8;
+  border-radius: 6px;
+  padding: 0.25rem 0.4rem;
+  cursor: pointer;
+  color: #aaa;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.msg-feedback-btn:hover:not(:disabled) {
+  color: #5c4ed8;
+  border-color: #5c4ed8;
+  background: rgba(92,78,216,0.06);
+}
+
+.msg-feedback-btn:disabled {
+  cursor: default;
+}
+
+.msg-feedback-active-up {
+  color: #22c55e !important;
+  border-color: #22c55e !important;
+  background: rgba(34,197,94,0.08) !important;
+}
+
+.msg-feedback-active-down {
+  color: #ef4444 !important;
+  border-color: #ef4444 !important;
+  background: rgba(239,68,68,0.08) !important;
+}
+
 .message-bubble {
   border-radius: 14px;
   padding: 0.85rem 1.1rem;
@@ -1187,3 +1227,93 @@
   padding: 0.4rem 0.75rem;
   margin: 0;
 }
+
+/* ══════════════════════════════
+   DARK MODE
+══════════════════════════════ */
+.dark .chat-layout       { background: #111827; }
+.dark .chat-sidebar      { background: #1f2937; border-right-color: #374151; }
+.dark .chat-main         { background: #111827; }
+.dark .chat-header       { background: #1f2937; border-bottom-color: #374151; }
+.dark .chat-header-title { color: #f9fafb; }
+.dark .chat-service-badge, .dark .chat-llm-badge { background: #374151; color: #d1d5db; border-color: #4b5563; }
+
+.dark .sidebar-logo-name   { color: #f9fafb; }
+.dark .sidebar-new         { background: #374151; color: #e5e7eb; border-color: #4b5563; }
+.dark .sidebar-new:hover   { background: #4b5563; }
+.dark .sidebar-search-wrap { background: #374151; border-color: #4b5563; }
+.dark .sidebar-search-input { background: transparent; color: #f9fafb; }
+.dark .sidebar-search-input::placeholder { color: #9ca3af; }
+.dark .sidebar-section-label { color: #9ca3af; }
+.dark .sidebar-item        { color: #d1d5db; }
+.dark .sidebar-item:hover  { background: #374151; }
+.dark .sidebar-item.active { background: #374151; color: #a78bfa; }
+.dark .sidebar-item-date   { color: #6b7280; }
+.dark .sidebar-user        { color: #d1d5db; }
+.dark .sidebar-user:hover  { background: #374151; }
+.dark .sidebar-username    { color: #f9fafb; }
+.dark .sidebar-role        { color: #9ca3af; }
+.dark .sidebar-avatar      { background: rgba(167,139,250,0.2); color: #a78bfa; }
+
+.dark .user-menu           { background: #1f2937; border-color: #374151; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.dark .user-menu-item      { color: #d1d5db; }
+.dark .user-menu-item:hover { background: #374151; }
+.dark .user-menu-divider   { background: #374151; }
+.dark .user-menu-lang-badge { background: #374151; color: #a78bfa; }
+
+.dark .bubble-bot          { background: #1f2937; color: #e5e7eb; border-color: #374151; }
+.dark .bubble-user         { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+.dark .msg-bot-avatar      { background: rgba(167,139,250,0.15); color: #a78bfa; }
+
+.dark .input-bar-wrap      { background: #111827; border-top-color: #374151; }
+.dark .input-bar           { background: #1f2937; border-color: #374151; }
+.dark .input-bar-textarea  { background: transparent; color: #f9fafb; }
+.dark .input-bar-textarea::placeholder { color: #6b7280; }
+.dark .input-icon-btn      { color: #9ca3af; }
+.dark .input-icon-btn:hover { background: #374151; color: #d1d5db; }
+.dark .input-model-trigger { color: #9ca3af; }
+.dark .input-model-trigger:hover { background: #374151; }
+.dark .input-model-menu    { background: #1f2937; border-color: #374151; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.dark .input-model-item    { color: #d1d5db; }
+.dark .input-model-item:hover { background: #374151; }
+.dark .input-file-chip     { background: #374151; color: #d1d5db; border-color: #4b5563; }
+
+.dark .welcome-section     { color: #f9fafb; }
+.dark .welcome-title       { color: #f9fafb; }
+.dark .welcome-sub         { color: #9ca3af; }
+.dark .faq-card            { background: #1f2937; border-color: #374151; color: #e5e7eb; }
+.dark .faq-card:hover      { background: #374151; }
+.dark .faq-label           { color: #9ca3af; }
+
+.dark .profil-overlay      { background: rgba(0,0,0,0.7); }
+.dark .profil-modal        { background: #1f2937; border-color: #374151; }
+.dark .profil-name         { color: #f9fafb; }
+.dark .profil-field-label  { color: #9ca3af; }
+.dark .profil-field-value  { color: #e5e7eb; }
+.dark .profil-pwd-input    { background: #374151; border-color: #4b5563; color: #f9fafb; }
+.dark .profil-pwd-title    { color: #d1d5db; }
+
+.dark .conv-action-menu    { background: #1f2937; border-color: #374151; }
+.dark .conv-action-item    { color: #d1d5db; }
+.dark .conv-action-item:hover { background: #374151; }
+
+.dark .msg-feedback-btn    { border-color: #374151; color: #6b7280; }
+.dark .msg-feedback-btn:hover:not(:disabled) { color: #a78bfa; border-color: #a78bfa; background: rgba(167,139,250,0.1); }
+
+.msg-sources { margin-top: 10px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 0.78rem; }
+.msg-sources-label { font-weight: 600; color: #6b7280; }
+.msg-sources-list { margin: 4px 0 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.msg-sources-item { color: #4b5563; background: #f3f4f6; border-radius: 6px; padding: 3px 8px; }
+.dark .msg-sources { border-top-color: #374151; }
+.dark .msg-sources-label { color: #9ca3af; }
+.dark .msg-sources-item { color: #d1d5db; background: #1f2937; }
+
+.msg-confidence { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.msg-confidence-label { font-weight: 600; color: #6b7280; font-size: 0.78rem; }
+.msg-confidence-bar { font-weight: 700; font-size: 0.78rem; padding: 2px 10px; border-radius: 20px; }
+.conf-high { background: #dcfce7; color: #16a34a; }
+.conf-mid  { background: #fef9c3; color: #ca8a04; }
+.conf-low  { background: #fee2e2; color: #dc2626; }
+.dark .conf-high { background: #14532d; color: #4ade80; }
+.dark .conf-mid  { background: #422006; color: #facc15; }
+.dark .conf-low  { background: #450a0a; color: #f87171; }

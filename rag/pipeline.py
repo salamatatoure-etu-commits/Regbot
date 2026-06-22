@@ -389,7 +389,7 @@ def _ask_llm_ollama(model: str, context: str, question: str, system_prompt: str,
     options = _ollama_options(effective_model)
     if options:
         payload["options"] = options
-    response = httpx.post(OLLAMA_API_URL, json=payload, timeout=180)
+    response = httpx.post(OLLAMA_API_URL, json=payload, timeout=httpx.Timeout(connect=30, read=300, write=30, pool=30))
     if response.status_code >= 400:
         raise httpx.HTTPStatusError(
             f"{response.status_code}: {response.text[:300]}",
@@ -411,7 +411,7 @@ def _ask_llm_ollama_stream(model: str, context: str, question: str, system_promp
     options = _ollama_options(effective_model)
     if options:
         payload["options"] = options
-    with httpx.stream("POST", OLLAMA_API_URL, json=payload, timeout=180) as response:
+    with httpx.stream("POST", OLLAMA_API_URL, json=payload, timeout=httpx.Timeout(connect=30, read=300, write=30, pool=30)) as response:
         if response.status_code >= 400:
             body = b""
             for chunk_bytes in response.iter_bytes():

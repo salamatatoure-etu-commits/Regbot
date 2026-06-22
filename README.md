@@ -156,7 +156,7 @@ Regbot/
 
 | Email | Mot de passe | Rôle |
 |---|---|---|
-| alice@regbot.com | pass1234 | Admin |
+| aya@regbot.com | pass1234 | Admin |
 | clara@regbot.com | pass1234 | Employé |
 
 ---

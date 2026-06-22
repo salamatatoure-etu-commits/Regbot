@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from models import Utilisateur, Service
 from schemas import UtilisateurCreate, UtilisateurOut
@@ -47,6 +47,40 @@ def create_utilisateur(
     payload["mot_de_passe"] = hash_password(payload["mot_de_passe"])
     u = Utilisateur(**payload, is_active=True)
     db.add(u)
+    db.commit()
+    db.refresh(u)
+    return u
+
+
+class UpdateUtilisateurRequest(BaseModel):
+    nom: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    service_id: Optional[int] = None
+
+
+@router.put("/{utilisateur_id}", response_model=UtilisateurOut)
+def update_utilisateur(
+    utilisateur_id: int,
+    data: UpdateUtilisateurRequest,
+    db: Session = Depends(get_db),
+    _: Utilisateur = Depends(require_admin),
+):
+    u = db.query(Utilisateur).filter(Utilisateur.utilisateurId == utilisateur_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    if data.email and data.email != u.email:
+        if db.query(Utilisateur).filter(Utilisateur.email == data.email).first():
+            raise HTTPException(status_code=400, detail="Email déjà utilisé")
+        u.email = data.email
+    if data.nom:
+        u.nom = data.nom
+    if data.role:
+        u.role = data.role
+    if data.service_id:
+        if not db.query(Service).filter(Service.serviceId == data.service_id).first():
+            raise HTTPException(status_code=400, detail="Service introuvable")
+        u.service_id = data.service_id
     db.commit()
     db.refresh(u)
     return u

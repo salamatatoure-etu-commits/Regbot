@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { listServices, createService, deleteService } from "../../api/services";
+import { listServices, createService, updateService, deleteService } from "../../api/services";
 
-function ServiceActionMenu({ serviceId, onDelete }) {
+function ServiceActionMenu({ serviceId, onDelete, onEdit }) {
   const [open, setOpen] = useState(false);
   const [dropUp, setDropUp] = useState(false);
   const ref = useRef(null);
@@ -48,6 +48,12 @@ function ServiceActionMenu({ serviceId, onDelete }) {
             transition={{ duration: 0.15 }}
           >
             <button
+              className="doc-action-item"
+              onClick={() => { setOpen(false); onEdit(serviceId); }}
+            >
+              ✏️ Modifier
+            </button>
+            <button
               className="doc-action-item doc-action-delete"
               onClick={() => { setOpen(false); onDelete(serviceId); }}
             >
@@ -68,8 +74,19 @@ export default function ServicesTab({ token }) {
   const [nom,      setNom]      = useState("");
   const [creating, setCreating] = useState(false);
   const [search,   setSearch]   = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editNom,   setEditNom]   = useState("");
+  const [saving,    setSaving]    = useState(false);
+  const editInputRef = useRef(null);
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (editingId !== null && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
 
   async function load() {
     setLoading(true);
@@ -96,6 +113,34 @@ export default function ServicesTab({ token }) {
     } finally {
       setCreating(false);
     }
+  }
+
+  function handleEdit(id) {
+    const s = services.find(s => s.serviceId === id);
+    if (!s) return;
+    setEditingId(id);
+    setEditNom(s.nom);
+    setError("");
+  }
+
+  async function handleSaveEdit(id) {
+    if (!editNom.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      await updateService(token, id, { nom: editNom.trim() });
+      setEditingId(null);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancelEdit() {
+    setEditingId(null);
+    setEditNom("");
   }
 
   async function handleDelete(id) {
@@ -198,9 +243,50 @@ export default function ServicesTab({ token }) {
                 <td style={{ width: "70px" }}>
                   <span className="service-id-badge">#{s.serviceId}</span>
                 </td>
-                <td><strong>{s.nom}</strong></td>
+                <td>
+                  {editingId === s.serviceId ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <input
+                        ref={editInputRef}
+                        className="inline-input"
+                        value={editNom}
+                        onChange={e => setEditNom(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") handleSaveEdit(s.serviceId);
+                          if (e.key === "Escape") handleCancelEdit();
+                        }}
+                        style={{ maxWidth: "220px" }}
+                      />
+                      <motion.button
+                        className="btn-primary"
+                        onClick={() => handleSaveEdit(s.serviceId)}
+                        disabled={saving}
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                        style={{ padding: "0.3rem 0.75rem", fontSize: "0.82rem" }}
+                      >
+                        {saving ? "…" : "Sauvegarder"}
+                      </motion.button>
+                      <motion.button
+                        className="btn-secondary"
+                        onClick={handleCancelEdit}
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                        style={{ padding: "0.3rem 0.75rem", fontSize: "0.82rem" }}
+                      >
+                        Annuler
+                      </motion.button>
+                    </div>
+                  ) : (
+                    <strong>{s.nom}</strong>
+                  )}
+                </td>
                 <td style={{ textAlign: "right" }}>
-                  <ServiceActionMenu serviceId={s.serviceId} onDelete={handleDelete} />
+                  {editingId !== s.serviceId && (
+                    <ServiceActionMenu
+                      serviceId={s.serviceId}
+                      onDelete={handleDelete}
+                      onEdit={handleEdit}
+                    />
+                  )}
                 </td>
               </motion.tr>
             ))}

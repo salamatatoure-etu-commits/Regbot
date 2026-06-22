@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { listUsers, createUser, deleteUser, resetUserPassword, toggleUserActive } from "../../api/users";
+import { listUsers, createUser, updateUser, deleteUser, resetUserPassword, toggleUserActive } from "../../api/users";
 import { listServices } from "../../api/services";
 
 const EMPTY = { nom: "", email: "", mot_de_passe: "", role: "employe", service_id: "" };
 
-function UserActionMenu({ userId, userName, onDelete, onReset }) {
+function UserActionMenu({ userId, userName, onDelete, onReset, onEdit }) {
   const [open, setOpen] = useState(false);
   const [dropUp, setDropUp] = useState(false);
   const ref = useRef(null);
@@ -43,6 +43,10 @@ function UserActionMenu({ userId, userName, onDelete, onReset }) {
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.15 }}>
             <button className="doc-action-item"
+              onClick={() => { setOpen(false); onEdit(userId); }}>
+              ✏️ Modifier
+            </button>
+            <button className="doc-action-item"
               onClick={() => { setOpen(false); onReset(userId); }}>
               🔑 Réinitialiser le mot de passe
             </button>
@@ -71,6 +75,11 @@ export default function UsersTab({ token }) {
   const [resetId,    setResetId]    = useState(null);
   const [resetPwd,   setResetPwd]   = useState("");
   const [resetLoading, setResetLoading] = useState(false);
+  const [showPwd,      setShowPwd]      = useState(false);
+  const [showResetPwd, setShowResetPwd] = useState(false);
+  const [editId,     setEditId]     = useState(null);
+  const [editForm,   setEditForm]   = useState({});
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -95,6 +104,7 @@ export default function UsersTab({ token }) {
     try {
       await createUser(token, { ...form, service_id: parseInt(form.service_id) });
       setSuccess(`Utilisateur "${form.nom}" créé avec succès.`);
+      setTimeout(() => setSuccess(""), 3000);
       setForm(EMPTY);
       setShowForm(false);
       await load();
@@ -118,6 +128,32 @@ export default function UsersTab({ token }) {
       setUsers(prev => prev.map(u => u.utilisateurId === id ? { ...u, is_active: updated.is_active } : u));
     } catch {
       setError("Erreur changement statut");
+    }
+  }
+
+  function handleEditOpen(id) {
+    const u = users.find(u => u.utilisateurId === id);
+    if (!u) return;
+    setEditId(editId === id ? null : id);
+    setEditForm({ nom: u.nom, email: u.email, role: u.role, service_id: u.service_id });
+    setResetId(null);
+    setError(""); setSuccess("");
+  }
+
+  async function handleEditSave(e) {
+    e.preventDefault();
+    setEditLoading(true);
+    setError(""); setSuccess("");
+    try {
+      await updateUser(token, editId, { ...editForm, service_id: parseInt(editForm.service_id) });
+      setSuccess("Utilisateur modifié avec succès.");
+      setTimeout(() => setSuccess(""), 3000);
+      setEditId(null);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEditLoading(false);
     }
   }
 
@@ -209,15 +245,33 @@ export default function UsersTab({ token }) {
                 <label>Email</label>
                 <input className="inline-input" type="email" value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  placeholder="fatima@entreprise.ma" required />
+                  placeholder="fatima@entreprise.ma" required autoComplete="off" />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
                 <label>Mot de passe</label>
-                <input className="inline-input" type="password" value={form.mot_de_passe}
-                  onChange={e => setForm(f => ({ ...f, mot_de_passe: e.target.value }))}
-                  placeholder="••••••••" minLength={6} required />
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <input className="inline-input" type={showPwd ? "text" : "password"} value={form.mot_de_passe}
+                    onChange={e => setForm(f => ({ ...f, mot_de_passe: e.target.value }))}
+                    placeholder="••••••••" minLength={6} required autoComplete="new-password" style={{ paddingRight: "2.2rem", width: "100%" }} />
+                  <button type="button" onClick={() => setShowPwd(v => !v)}
+                    style={{ position: "absolute", right: "0.5rem", background: "none", border: "none", cursor: "pointer", color: "#888", padding: 0, display: "flex" }}
+                    title={showPwd ? "Masquer" : "Afficher"}>
+                    {showPwd ? (
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+                        <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label>Rôle</label>
@@ -288,10 +342,52 @@ export default function UsersTab({ token }) {
                       userId={u.utilisateurId}
                       userName={u.nom}
                       onDelete={handleDelete}
-                      onReset={(id) => { setResetId(resetId === id ? null : id); setResetPwd(""); }}
+                      onReset={(id) => { setResetId(resetId === id ? null : id); setResetPwd(""); setEditId(null); }}
+                      onEdit={handleEditOpen}
                     />
                   </td>
                 </motion.tr>
+
+                <AnimatePresence>
+                  {editId === u.utilisateurId && (
+                    <motion.tr key={`edit-${u.utilisateurId}`}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <td colSpan={6} style={{ background: "#fafbff", padding: "0.75rem 1rem" }}>
+                        <form className="inline-form" onSubmit={handleEditSave} style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+                          <input className="inline-input" value={editForm.nom || ""}
+                            onChange={e => setEditForm(f => ({ ...f, nom: e.target.value }))}
+                            placeholder="Nom complet" required style={{ maxWidth: 180 }} />
+                          <input className="inline-input" type="email" value={editForm.email || ""}
+                            onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                            placeholder="Email" required style={{ maxWidth: 200 }} />
+                          <select className="inline-input" value={editForm.role || "employe"}
+                            onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))}
+                            style={{ maxWidth: 120 }}>
+                            <option value="employe">Employé</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          <select className="inline-input" value={editForm.service_id || ""}
+                            onChange={e => setEditForm(f => ({ ...f, service_id: e.target.value }))}
+                            required style={{ maxWidth: 160 }}>
+                            <option value="">— Service —</option>
+                            {services.map(s => (
+                              <option key={s.serviceId} value={s.serviceId}>{s.nom}</option>
+                            ))}
+                          </select>
+                          <motion.button className="btn-primary" type="submit" disabled={editLoading}
+                            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                            {editLoading ? "…" : "Sauvegarder"}
+                          </motion.button>
+                          <button type="button" className="btn-danger-sm"
+                            onClick={() => setEditId(null)}>Annuler</button>
+                        </form>
+                      </td>
+                    </motion.tr>
+                  )}
+                </AnimatePresence>
 
                 <AnimatePresence>
                   {resetId === u.utilisateurId && (
@@ -302,16 +398,34 @@ export default function UsersTab({ token }) {
                     >
                       <td colSpan={6} style={{ background: "#fafbff", padding: "0.75rem 1rem" }}>
                         <form className="inline-form" onSubmit={handleReset}>
-                          <input
-                            className="inline-input"
-                            type="password"
-                            placeholder="Nouveau mot de passe (6 car. min.)"
-                            value={resetPwd}
-                            onChange={e => setResetPwd(e.target.value)}
-                            minLength={6}
-                            required
-                            style={{ maxWidth: 280 }}
-                          />
+                          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                            <input
+                              className="inline-input"
+                              type={showResetPwd ? "text" : "password"}
+                              placeholder="Nouveau mot de passe (6 car. min.)"
+                              value={resetPwd}
+                              onChange={e => setResetPwd(e.target.value)}
+                              minLength={6}
+                              required
+                              style={{ maxWidth: 280, paddingRight: "2.2rem" }}
+                            />
+                            <button type="button" onClick={() => setShowResetPwd(v => !v)}
+                              style={{ position: "absolute", right: "0.5rem", background: "none", border: "none", cursor: "pointer", color: "#888", padding: 0, display: "flex" }}
+                              title={showResetPwd ? "Masquer" : "Afficher"}>
+                              {showResetPwd ? (
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+                                  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+                                  <line x1="1" y1="1" x2="23" y2="23"/>
+                                </svg>
+                              ) : (
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                  <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                              )}
+                            </button>
+                          </div>
                           <motion.button className="btn-primary" type="submit"
                             disabled={resetLoading}
                             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>

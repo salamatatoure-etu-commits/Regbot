@@ -26,6 +26,22 @@ export async function uploadDocument(token, file, service_id) {
   return res.json();
 }
 
+export async function uploadMultipleDocuments(token, files, service_id) {
+  const form = new FormData();
+  files.forEach(file => form.append("files", file));
+  if (service_id) form.append("service_id", service_id);
+  const res = await fetch(`${BASE}/documents/upload-multiple`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Erreur upload multiple");
+  }
+  return res.json();
+}
+
 export async function uploadTempDoc(token, conversationId, file) {
   const form = new FormData();
   form.append("file", file);

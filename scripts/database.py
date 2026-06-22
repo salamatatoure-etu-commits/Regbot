@@ -168,7 +168,7 @@ def add_utilisateurs():
             print(f"{WARN} Aucun service trouve.")
             return
         utilisateurs = [
-            ("Alice Martin", "alice@regbot.com",  "pass1234", RoleEnum.admin,   choice(service_ids)),
+            ("Aya Benali",   "aya@regbot.com",    "pass1234", RoleEnum.admin,   choice(service_ids)),
             ("Bob Dupont",   "bob@regbot.com",    "pass1234", RoleEnum.employe, choice(service_ids)),
             ("Clara Leroy",  "clara@regbot.com",  "pass1234", RoleEnum.employe, choice(service_ids)),
             ("David Moreau", "david@regbot.com",  "pass1234", RoleEnum.admin,   choice(service_ids)),

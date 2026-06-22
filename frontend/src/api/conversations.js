@@ -73,6 +73,16 @@ export async function getConversationDocuments(token, conversationId) {
   return res.json();
 }
 
+export async function sendFeedback(token, messageId, feedback) {
+  const res = await fetch(`${BASE}/messages/${messageId}/feedback`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ feedback }),
+  });
+  if (!res.ok) throw new Error("Erreur feedback");
+  return res.json();
+}
+
 export async function cleanupConversations(token) {
   const res = await fetch(`${BASE}/conversations/cleanup`, {
     method: "POST",

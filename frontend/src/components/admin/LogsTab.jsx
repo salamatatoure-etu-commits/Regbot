@@ -13,7 +13,7 @@ export default function LogsTab({ token }) {
   const [error,   setError]   = useState("");
 
   useEffect(() => {
-    getLogs(token, 50)
+    getLogs(token, 100)
       .then(setLogs)
       .catch(() => setError("Erreur chargement logs"))
       .finally(() => setLoading(false));
@@ -26,7 +26,7 @@ export default function LogsTab({ token }) {
       <div className="tab-toolbar">
         <div>
           <h2 className="tab-title">Logs d'activité</h2>
-          <p className="tab-subtitle">Les 50 derniers messages échangés sur la plateforme.</p>
+          <p className="tab-subtitle">Les 100 derniers messages échangés sur la plateforme.</p>
         </div>
         <span style={{ fontSize: "0.8rem", color: "#aaa" }}>{logs.length} entrées</span>
       </div>

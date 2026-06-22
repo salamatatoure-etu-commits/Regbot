@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { listDocuments, uploadDocument, deleteDocument } from "../../api/documents";
+import { listDocuments, uploadMultipleDocuments, deleteDocument } from "../../api/documents";
 import { listServices } from "../../api/services";
 
 const MIME_LABELS = {
@@ -93,7 +93,7 @@ export default function DocumentsTab({ token }) {
   const [error,       setError]       = useState("");
   const [showForm,    setShowForm]    = useState(false);
   const [serviceId,   setServiceId]   = useState("");
-  const [pendingFile, setPendingFile] = useState(null);
+  const [pendingFiles, setPendingFiles] = useState([]);
 
   // search & filter
   const [search,      setSearch]      = useState("");
@@ -115,23 +115,23 @@ export default function DocumentsTab({ token }) {
   }
 
   function handleFileChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPendingFile(file);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setPendingFiles(files);
     setShowForm(true);
     e.target.value = "";
   }
 
   async function handleUpload(e) {
     e.preventDefault();
-    if (!pendingFile) return;
+    if (!pendingFiles.length) return;
     setUploading(true);
     setError("");
     try {
-      await uploadDocument(token, pendingFile, serviceId);
+      await uploadMultipleDocuments(token, pendingFiles, serviceId);
       await load();
       setShowForm(false);
-      setPendingFile(null);
+      setPendingFiles([]);
       setServiceId("");
     } catch (err) {
       setError(err.message);
@@ -193,7 +193,7 @@ export default function DocumentsTab({ token }) {
 
           <motion.label className="btn-primary" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={{ cursor: "pointer" }}>
             + Importer
-            <input type="file" hidden onChange={handleFileChange}
+            <input type="file" hidden multiple onChange={handleFileChange}
               accept=".pdf,.txt,.md,.docx,.doc,.xlsx,.xls,.html" />
           </motion.label>
         </div>
@@ -251,10 +251,16 @@ export default function DocumentsTab({ token }) {
             transition={{ duration: 0.22 }}
             style={{ overflow: "hidden" }}
           >
-            <div className="form-row" style={{ alignItems: "center" }}>
-              <div className="form-group">
-                <label>Fichier sélectionné</label>
-                <input className="inline-input" value={pendingFile?.name || ""} readOnly style={{ color: "#888" }} />
+            <div className="form-row" style={{ alignItems: "flex-start" }}>
+              <div className="form-group" style={{ flex: 2 }}>
+                <label>{pendingFiles.length} fichier{pendingFiles.length > 1 ? "s" : ""} sélectionné{pendingFiles.length > 1 ? "s" : ""}</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", maxHeight: "100px", overflowY: "auto" }}>
+                  {pendingFiles.map((f, i) => (
+                    <span key={i} style={{ fontSize: "0.82rem", color: "#555", padding: "0.2rem 0.5rem", background: "#f4f4f6", borderRadius: "6px" }}>
+                      {f.name}
+                    </span>
+                  ))}
+                </div>
               </div>
               <div className="form-group">
                 <label>Service *</label>
@@ -269,10 +275,10 @@ export default function DocumentsTab({ token }) {
             <div style={{ display: "flex", gap: "0.6rem" }}>
               <motion.button className="btn-primary" type="submit" disabled={uploading}
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-                {uploading ? "Envoi…" : "Confirmer l'import"}
+                {uploading ? "Envoi…" : `Importer ${pendingFiles.length > 1 ? `${pendingFiles.length} fichiers` : "le fichier"}`}
               </motion.button>
               <button type="button" className="btn-danger-sm"
-                onClick={() => { setShowForm(false); setPendingFile(null); setServiceId(""); }}>
+                onClick={() => { setShowForm(false); setPendingFiles([]); setServiceId(""); }}>
                 Annuler
               </button>
             </div>
@@ -291,7 +297,7 @@ export default function DocumentsTab({ token }) {
 
       <table className="admin-table">
         <thead>
-          <tr><th>Nom</th><th>Service</th><th>Type</th><th>Chunks</th><th></th></tr>
+          <tr><th>Nom</th><th>Service</th><th>Type</th><th>Date</th><th></th></tr>
         </thead>
         <tbody>
           <AnimatePresence>
@@ -305,7 +311,9 @@ export default function DocumentsTab({ token }) {
                 <td>{stripExt(d.name)}</td>
                 <td>{services.find(s => s.serviceId === d.service_id)?.nom ?? "—"}</td>
                 <td><span className="badge">{formatMime(d.mime_type)}</span></td>
-                <td>{d.chunk_count}</td>
+                <td style={{ color: "#888", fontSize: "0.85rem" }}>
+                  {d.last_modified ? new Date(d.last_modified).toLocaleDateString("fr-FR") : "—"}
+                </td>
                 <td style={{ textAlign: "right" }}>
                   <ActionMenu docId={d.documentId} onDelete={handleDelete} />
                 </td>

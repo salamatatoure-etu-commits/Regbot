@@ -6,7 +6,7 @@ import InputBar from "../components/chat/InputBar";
 import { useStream } from "../hooks/useStream";
 import { getFaq } from "../api/rag";
 import { uploadTempDoc } from "../api/documents";
-import { myConversations, startConversation, getConversationMessages, saveMessagePair, getConversationDocuments } from "../api/conversations";
+import { myConversations, startConversation, getConversationMessages, saveMessagePair, getConversationDocuments, sendFeedback } from "../api/conversations";
 import "./Chat.css";
 
 const FAQ_ICONS = ["📅", "📋", "🏠", "❤️"];
@@ -163,6 +163,14 @@ export default function Chat({ user, token, onLogout }) {
         if (conv.dbId) {
           saveMessagePair(token, conv.dbId, question, botContent, attachedFileIds)
             .then(res => {
+              if (res?.bot_message_id) {
+                setMessages(prev => {
+                  const u = [...prev];
+                  u[u.length - 1] = { ...u[u.length - 1], messageId: res.bot_message_id };
+                  msgCacheRef.current[conv.dbId || conv.conversationId] = u;
+                  return u;
+                });
+              }
               setConversations(prev => {
                 const updated = prev.map(c =>
                   c.conversationId === conv.conversationId
@@ -318,7 +326,7 @@ export default function Chat({ user, token, onLogout }) {
           )}
         </AnimatePresence>
 
-        <MessageList messages={messages} streaming={streaming} user={user} />
+        <MessageList messages={messages} streaming={streaming} user={user} onFeedback={(messageId, feedback) => sendFeedback(token, messageId, feedback).catch(() => {})} />
         <InputBar onSend={handleSend} disabled={streaming} onUpload={handleUpload} onStop={abort} uploadedFiles={uploadedFiles} onRemoveFile={handleRemoveFile} llmModel={llmModel} provider={provider} onProviderChange={setProvider} />
       </main>
     </div>

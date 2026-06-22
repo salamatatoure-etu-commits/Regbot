@@ -19,6 +19,19 @@ export async function createService(token, data) {
   return res.json();
 }
 
+export async function updateService(token, serviceId, data) {
+  const res = await fetch(`${BASE}/services/${serviceId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Erreur modification service");
+  }
+  return res.json();
+}
+
 export async function deleteService(token, serviceId) {
   const res = await fetch(`${BASE}/services/${serviceId}`, {
     method: "DELETE",

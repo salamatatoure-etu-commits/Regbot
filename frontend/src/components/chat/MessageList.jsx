@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 
@@ -47,7 +47,50 @@ function formatContent(text) {
     .join("\n");
 }
 
-export default function MessageList({ messages, streaming, user }) {
+function FeedbackButtons({ messageId, onFeedback }) {
+  const [voted, setVoted] = useState(null);
+
+  if (!messageId) return null;
+
+  function handle(value) {
+    if (voted !== null) return;
+    setVoted(value);
+    onFeedback(messageId, value);
+  }
+
+  return (
+    <div className="msg-feedback">
+      <motion.button
+        className={`msg-feedback-btn ${voted === 5 ? "msg-feedback-active-up" : ""}`}
+        onClick={() => handle(5)}
+        disabled={voted !== null}
+        whileHover={voted === null ? { scale: 1.15 } : {}}
+        whileTap={voted === null ? { scale: 0.9 } : {}}
+        title="Bonne réponse"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill={voted === 5 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/>
+          <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/>
+        </svg>
+      </motion.button>
+      <motion.button
+        className={`msg-feedback-btn ${voted === 1 ? "msg-feedback-active-down" : ""}`}
+        onClick={() => handle(1)}
+        disabled={voted !== null}
+        whileHover={voted === null ? { scale: 1.15 } : {}}
+        whileTap={voted === null ? { scale: 0.9 } : {}}
+        title="Mauvaise réponse"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill={voted === 1 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/>
+          <path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/>
+        </svg>
+      </motion.button>
+    </div>
+  );
+}
+
+export default function MessageList({ messages, streaming, user, onFeedback }) {
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -83,6 +126,9 @@ export default function MessageList({ messages, streaming, user }) {
                   <ThinkingBubble />
                 ) : (
                   <>
+                    {isBot && !streaming && msg.content && (
+                      <FeedbackButtons messageId={msg.messageId} onFeedback={onFeedback} />
+                    )}
                     {!isBot && msg.files?.length > 0 && (
                       <div className="msg-file-attachments">
                         {msg.files.map(f => (
@@ -111,6 +157,26 @@ export default function MessageList({ messages, streaming, user }) {
                         >▌</motion.span>
                       )}
                     </div>
+                    {isBot && msg.sources?.length > 0 && !streaming && msg.is_reliable !== false && (
+                      <div className="msg-sources">
+                        <span className="msg-sources-label">Sources :</span>
+                        <ul className="msg-sources-list">
+                          {[...new Map(msg.sources.map(s => [`${s.titre}-${s.page}`, s])).values()].map((s, idx) => (
+                            <li key={idx} className="msg-sources-item">
+                              📄 {s.titre}{s.page ? ` — p.${s.page}` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                        {msg.confidence != null && (
+                          <div className="msg-confidence">
+                            <span className="msg-confidence-label">Confiance :</span>
+                            <span className={`msg-confidence-bar ${msg.confidence >= 0.6 ? "conf-high" : msg.confidence >= 0.3 ? "conf-mid" : "conf-low"}`}>
+                              {Math.round(msg.confidence * 100)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </div>

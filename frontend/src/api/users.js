@@ -19,6 +19,19 @@ export async function createUser(token, data) {
   return res.json();
 }
 
+export async function updateUser(token, userId, data) {
+  const res = await fetch(`${BASE}/utilisateurs/${userId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Erreur modification utilisateur");
+  }
+  return res.json();
+}
+
 export async function deleteUser(token, userId) {
   const res = await fetch(`${BASE}/utilisateurs/${userId}`, {
     method: "DELETE",

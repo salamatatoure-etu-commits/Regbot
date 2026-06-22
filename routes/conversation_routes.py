@@ -339,7 +339,8 @@ def save_message_pair(
     now = datetime.now(UTC)
     temp_document_ids = ",".join(str(i) for i in data.temp_document_ids) or None
     db.add(Message(conversation_id=conversation_id, contenu=data.question, type_message=MessageTypeEnum.user, timestamp=now, langue="fr", priority=PriorityEnum.medium, temp_document_ids=temp_document_ids))
-    db.add(Message(conversation_id=conversation_id, contenu=data.answer,   type_message=MessageTypeEnum.bot,  timestamp=now, langue="fr", priority=PriorityEnum.medium))
+    bot_msg = Message(conversation_id=conversation_id, contenu=data.answer, type_message=MessageTypeEnum.bot, timestamp=now, langue="fr", priority=PriorityEnum.medium)
+    db.add(bot_msg)
     conv = db.query(Conversation).filter(Conversation.conversationid == conversation_id).first()
     titre_genere = None
     if conv:
@@ -351,7 +352,8 @@ def save_message_pair(
             titre_genere = _generate_conversation_title(data.question, data.answer)
             conv.titre = titre_genere
     db.commit()
-    return {"ok": True, "titre": titre_genere}
+    db.refresh(bot_msg)
+    return {"ok": True, "titre": titre_genere, "bot_message_id": bot_msg.messageId}
 
 
 @router.get("/{conversation_id}/documents")

@@ -37,6 +37,7 @@ export default function ConversationsTab({ token }) {
     try {
       const res = await cleanupConversations(token);
       setSuccess(`Nettoyage terminé : ${res.documents_supprimes} doc(s) supprimé(s), ${res.conversations_fermees} conversation(s) fermée(s).`);
+      setTimeout(() => setSuccess(""), 2000);
       await load();
     } catch (err) {
       setError(err.message);
