@@ -157,26 +157,6 @@ export default function MessageList({ messages, streaming, user, onFeedback }) {
                         >▌</motion.span>
                       )}
                     </div>
-                    {isBot && msg.sources?.length > 0 && !streaming && msg.is_reliable !== false && (
-                      <div className="msg-sources">
-                        <span className="msg-sources-label">Sources :</span>
-                        <ul className="msg-sources-list">
-                          {[...new Map(msg.sources.map(s => [`${s.titre}-${s.page}`, s])).values()].map((s, idx) => (
-                            <li key={idx} className="msg-sources-item">
-                              📄 {s.titre}{s.page ? ` — p.${s.page}` : ""}
-                            </li>
-                          ))}
-                        </ul>
-                        {msg.confidence != null && (
-                          <div className="msg-confidence">
-                            <span className="msg-confidence-label">Confiance :</span>
-                            <span className={`msg-confidence-bar ${msg.confidence >= 0.6 ? "conf-high" : msg.confidence >= 0.3 ? "conf-mid" : "conf-low"}`}>
-                              {Math.round(msg.confidence * 100)}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </>
                 )}
               </div>

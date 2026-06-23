@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Salimata
+      POSTGRES_PASSWORD: root
       POSTGRES_DB: regbot
     ports:
       - "5433:5432"

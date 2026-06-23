@@ -38,12 +38,6 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 # Modèle LLM utilisé par défaut
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
 
-# Clé API Gemini : utilisée uniquement en repli quand Groq renvoie 429 (quota atteint)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-GEMINI_STREAM_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent"
-GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.0-flash")
-
 # Ollama : LLM local, API compatible OpenAI
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_API_URL = f"{OLLAMA_BASE_URL}/api/chat"
@@ -328,48 +322,6 @@ def _ask_llm_stream(
                     continue  # ignore les lignes malformées
 
 
-# ─── Repli vers Gemini (uniquement quand Groq renvoie 429) ───────────────────
-
-def _ask_gemini(context: str, question: str, system_prompt: str, history: list[dict] = None) -> str:
-    """Repli non-streaming : même prompt que Groq, envoyé à l'API Gemini."""
-    if not GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY non configurée")
-    prompt = _build_prompt(context, question, system_prompt, history)
-    response = httpx.post(
-        GEMINI_API_URL.format(model=GEMINI_FALLBACK_MODEL),
-        params={"key": GEMINI_API_KEY},
-        json={"contents": [{"parts": [{"text": prompt}]}]},
-        timeout=60,
-    )
-    response.raise_for_status()
-    return response.json()["candidates"][0]["content"]["parts"][0]["text"]
-
-
-def _ask_gemini_stream(context: str, question: str, system_prompt: str, history: list[dict] = None):
-    """Repli streaming : même prompt que Groq, tokens envoyés au fil de l'eau via Gemini."""
-    if not GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY non configurée")
-    prompt = _build_prompt(context, question, system_prompt, history)
-    with httpx.stream(
-        "POST",
-        GEMINI_STREAM_URL.format(model=GEMINI_FALLBACK_MODEL),
-        params={"key": GEMINI_API_KEY, "alt": "sse"},
-        json={"contents": [{"parts": [{"text": prompt}]}]},
-        timeout=60,
-    ) as response:
-        response.raise_for_status()
-        for line in response.iter_lines():
-            if not line or not line.startswith("data: "):
-                continue
-            try:
-                chunk = json.loads(line[6:])
-                token = chunk["candidates"][0]["content"]["parts"][0].get("text", "")
-                if token:
-                    yield token
-            except Exception:
-                continue
-
-
 # ─── Appels au LLM local via Ollama ──────────────────────────────────────────
 
 def _ollama_options(model: str) -> dict:
@@ -614,16 +566,11 @@ def rag_query(
         label = "Ollama (localhost:11434)" if provider == "ollama" else "l'API Groq"
         return {"answer": f"⚠ Impossible de joindre {label}. Vérifiez que le service est démarré.", "sources": [], "confidence": 0.0, "is_reliable": False}
     except httpx.HTTPStatusError as e:
+        label = "Ollama" if provider == "ollama" else "Groq"
         if provider != "ollama" and e.response.status_code == 429:
-            # Groq a atteint sa limite de requêtes : on retente avec Gemini avant d'abandonner
-            try:
-                answer = _clean_answer(_ask_gemini(context, search_question, prompt, history))
-            except Exception:
-                return {"answer": "⚠ Le service est temporairement surchargé (limite de requêtes atteinte). Réessayez dans quelques instants.", "sources": [], "confidence": 0.0, "is_reliable": False}
-        else:
-            label = "Ollama" if provider == "ollama" else "Groq"
-            detail = str(e).split(":", 1)[-1].strip()[:200] if ":" in str(e) else ""
-            return {"answer": f"⚠ Erreur de l'API {label} ({e.response.status_code}).{(' — ' + detail) if detail else ''}", "sources": [], "confidence": 0.0, "is_reliable": False}
+            return {"answer": "⚠ Le service est temporairement surchargé (limite de requêtes atteinte). Réessayez dans quelques instants.", "sources": [], "confidence": 0.0, "is_reliable": False}
+        detail = str(e).split(":", 1)[-1].strip()[:200] if ":" in str(e) else ""
+        return {"answer": f"⚠ Erreur de l'API {label} ({e.response.status_code}).{(' — ' + detail) if detail else ''}", "sources": [], "confidence": 0.0, "is_reliable": False}
 
     # ── Étape 6 : construction de la réponse finale avec sources et confiance ───
     all_sources = [
@@ -726,14 +673,10 @@ def rag_summarize_uploaded_documents(
         else:
             answer = _clean_answer(_ask_llm(llm_model, context, summary_question, prompt))
     except httpx.HTTPStatusError as e:
+        label = "Ollama" if provider == "ollama" else "Groq"
         if provider != "ollama" and e.response.status_code == 429:
-            try:
-                answer = _clean_answer(_ask_gemini(context, summary_question, prompt))
-            except Exception as ge:
-                return {"answer": f"Erreur lors de la génération du résumé : {ge}", "sources": [], "confidence": 0.0, "is_reliable": False}
-        else:
-            label = "Ollama" if provider == "ollama" else "Groq"
-            return {"answer": f"Erreur de l'API {label} ({e.response.status_code}).", "sources": [], "confidence": 0.0, "is_reliable": False}
+            return {"answer": "⚠ Le service est temporairement surchargé (limite de requêtes atteinte). Réessayez dans quelques instants.", "sources": [], "confidence": 0.0, "is_reliable": False}
+        return {"answer": f"Erreur de l'API {label} ({e.response.status_code}).", "sources": [], "confidence": 0.0, "is_reliable": False}
     except Exception as e:
         return {"answer": f"Erreur lors de la génération du résumé : {e}", "sources": [], "confidence": 0.0, "is_reliable": False}
 
@@ -837,15 +780,10 @@ def rag_query_stream(
         yield f'data: {json.dumps({"done": True, "sources": [], "confidence": 0.0, "is_reliable": False})}\n\n'
         return
     except httpx.HTTPStatusError as e:
+        label = "Ollama" if provider == "ollama" else "Groq"
         if provider != "ollama" and e.response.status_code == 429:
-            # Groq a atteint sa limite de requêtes : on retente avec Gemini avant d'abandonner
-            try:
-                yield from _stream_tokens(_ask_gemini_stream(context, search_question, prompt, history), sources, confidence)
-                return
-            except Exception:
-                msg = "\n\n⚠ Le service est temporairement surchargé (limite de requêtes atteinte). Réessayez dans quelques instants."
+            msg = "\n\n⚠ Le service est temporairement surchargé (limite de requêtes atteinte). Réessayez dans quelques instants."
         else:
-            label = "Ollama" if provider == "ollama" else "Groq"
             detail = str(e).split(":", 1)[-1].strip()[:200] if ":" in str(e) else ""
             msg = f"\n\n⚠ Erreur de l'API {label} ({e.response.status_code}).{(' — ' + detail) if detail else ''}"
         yield f'data: {json.dumps({"token": msg})}\n\n'
